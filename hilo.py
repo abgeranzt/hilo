@@ -1,4 +1,5 @@
 #!/bin/python3
+import re
 
 """
 a = Clubs
@@ -12,14 +13,20 @@ class Deck:
 	size = {}
 
 	def __init__(self, size):
-		if size % 4 > 0 or size > 52:
-			raise("Invalid deck size")
 		self.size = size
 		for c in ["a", "b", "c", "d"]:
 			val = 14
 			for i in range(int(size / 4)):
 				self.cards[f'{c}{val}'] = True
 				val -= 1
+
+	def print(self):
+		for i in range(15 - int(self.size / 4), 15):
+			cards = []
+			for c in ["a", "b", "c", "d"]:
+				card = f"{c}{i}"
+				cards.append(self.cards[card] and card or "")
+			print("\t".join(cards))
 
 	def add(self, card):
 		self.cards[card] = True
@@ -61,10 +68,55 @@ class Table:
 	def add_right(self, row, card):
 		self.rows[row].append(card)
 
+def game_init():
+	deck = None
+	while True:
+		size = 0
+		try:
+			size = int(input("Deck size: "))
+			if size > 52 or size % 4 != 0:
+				raise TypeError
+		except TypeError:
+			print("Invalid input. (ex: 24, 32, 36, 52)")
+			continue
+		deck = Deck(size)
+		break
+	rows = None
+	while True:
+		try:
+			rows = int(input("Rows: "))
+			if rows > deck.size:
+				raise TypeError
+		except TypeError:
+			print("Invalid input. (ex: 4, 5, 6)")
+			continue
+		break
+	table = None
+	while True:
+		cards = None
+		try:
+			cards = re.split(",", input("Initial cards: "))
+			for c in cards:
+				print(c)
+				if not re.match('^[abc]\d{1,2}$', c):
+					raise TypeError
+		except TypeError:
+			print("Invalid input. (ex: a11,c6,d8)")
+			continue
+		for c in cards:
+			deck.remove(c)
+		table = Table(rows, cards)
+		break
+	return deck, table
+
+def game_loop():
+	pass
+
 def main():
-	deck = Deck(8)
-	deck.remove('a14')
-	print(deck.calc('a14'))
+	deck, table = game_init()
+	table.print()
+#	deck = Deck(52)
+	deck.print()
 
 if __name__ == '__main__':
 	main()
