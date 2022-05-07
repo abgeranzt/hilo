@@ -313,4 +313,14 @@ mod test {
         assert!(deck.cards.get(&card1).unwrap());
         assert!(deck.cards.get(&card2).unwrap());
     }
+
+    #[test]
+    fn row_formats_correctly() {
+        let cards = [String::from("a4"), String::from("b3"), String::from("c12")];
+        let mut row = Row::new(cards[1].clone());
+        row.add_left(cards[0].clone());
+        row.add_right(cards[2].clone());
+        let re = Regex::new(r"^a4 b3 c12$").unwrap();
+        assert!(re.is_match(&format!("{}", row)));
+    }
 }
