@@ -11,10 +11,10 @@ pub struct Deck {
 
 impl Deck {
     pub fn new(size: usize) -> Result<Deck, Error> {
-        if size % 4 != 0 {
+        if size > 52 || size % 4 != 0 {
             return Err(Error::new(
-                ErrorKind::Other,
-                "Deck size must divisible by 4",
+                ErrorKind::InvalidInput,
+                "Deck size must no larger than 52 and divisible by 4",
             ));
         }
         let mut cards = HashMap::new();
@@ -34,8 +34,15 @@ impl Deck {
         })
     }
 
+    pub fn has_card(&self, card: &String) -> bool {
+        match self.cards.get(card) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     // TODO handle cards that are not part of the deck
-    fn add(&mut self, card: String) -> Result<(), Error> {
+    pub fn add(&mut self, card: String) -> Result<(), Error> {
         let value = match Deck::parse_value(&card) {
             Ok(value) => value,
             Err(e) => return Err(e),
@@ -43,22 +50,22 @@ impl Deck {
         self.cards.insert(card, true);
         let count = match self.values.get_mut(&value) {
             Some(count) => count,
-            None => return Err(Error::new(ErrorKind::Other, "Card not in deck")),
+            None => return Err(Error::new(ErrorKind::InvalidInput, "Card not in deck")),
         };
         *count = *count + 1;
         self.size = self.size + 1;
         Ok(())
     }
 
-    fn remove(&mut self, card: String) -> Result<(), Error> {
-        let value = match Deck::parse_value(&card) {
+    pub fn remove(&mut self, card: &String) -> Result<(), Error> {
+        let value = match Deck::parse_value(card) {
             Ok(value) => value,
             Err(e) => return Err(e),
         };
-        self.cards.insert(card, false);
+        self.cards.insert(card.clone(), false);
         let count = match self.values.get_mut(&value) {
             Some(count) => count,
-            None => return Err(Error::new(ErrorKind::Other, "Card not in deck")),
+            None => return Err(Error::new(ErrorKind::InvalidInput, "Card not in deck")),
         };
         *count = *count - 1;
         self.size = self.size - 1;
@@ -89,11 +96,11 @@ impl Deck {
     fn parse_value(card: &String) -> Result<usize, Error> {
         match card[1..].parse::<usize>() {
             Ok(card) => Ok(card),
-            Err(_) => return Err(Error::new(ErrorKind::Other, "Invalid card value")),
+            Err(_) => return Err(Error::new(ErrorKind::InvalidInput, "Invalid card value")),
         }
     }
 
-    fn is_card(card: &String) -> bool {
+    pub fn is_card(card: &String) -> bool {
         let re: Regex = Regex::new(r"^[abc]\d{1,2}$").unwrap();
         if !re.is_match(&card) {
             return false;
@@ -114,7 +121,7 @@ pub struct Table {
 }
 
 impl Table {
-    pub fn new(row_count: usize, cards: &Vec<String>) -> Result<Table, Error> {
+    pub fn new(row_count: usize, cards: Vec<String>) -> Result<Table, Error> {
         if row_count != cards.len() {
             return Err(Error::new(ErrorKind::InvalidInput, "Invalid card amount"));
         }
@@ -195,7 +202,7 @@ mod test {
     fn deck_can_remove_cards() {
         let mut deck = Deck::new(36).unwrap();
         let card = String::from("a10");
-        deck.remove(card.clone()).unwrap();
+        deck.remove(&card).unwrap();
         assert_eq!(deck.size, 35);
         let card = deck.cards.get(&card).unwrap();
         assert!(!card);
@@ -205,7 +212,7 @@ mod test {
     fn deck_can_calculate_chance() {
         let mut deck = Deck::new(8).unwrap();
         let card = String::from("a14");
-        deck.remove(card.clone()).unwrap();
+        deck.remove(&card).unwrap();
         let (higher, equal, lower) = deck.calc(&card).unwrap();
         assert_eq!(higher, 0.0);
         assert_eq!(equal, 3.0 / 7.0);
@@ -227,7 +234,7 @@ mod test {
     #[test]
     fn deck_can_check_card_validity() {
         let cards = [
-            String::from("a2"),
+            String::from("a10"),
             String::from("b20"),
             String::from("14"),
             String::from("!14"),
@@ -242,7 +249,7 @@ mod test {
     #[test]
     fn table_can_be_created() {
         let cards = vec![String::from("a1"), String::from("b2"), String::from("c3")];
-        let table = Table::new(3, &cards).unwrap();
+        let table = Table::new(3, cards.clone()).unwrap();
         for i in 0..3 {
             assert_eq!(
                 table.rows.get(i).unwrap().cards.get(0).unwrap(),
@@ -267,8 +274,8 @@ mod test {
         let mut deck = Deck::new(16).unwrap();
         let card1 = String::from("a14");
         let card2 = String::from("b13");
-        deck.remove(card1.clone()).unwrap();
-        deck.remove(card2.clone()).unwrap();
+        deck.remove(&card1).unwrap();
+        deck.remove(&card2).unwrap();
         let mut row = Row::new(card1.clone());
         row.add_right(card2.clone());
         assert_eq!(deck.size, 14);

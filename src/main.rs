@@ -2,7 +2,6 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{stdin, stdout, Error, ErrorKind, Read, Write};
-use std::thread::sleep;
 use std::time::Duration;
 
 extern crate termion;
@@ -11,18 +10,19 @@ use termion::{clear, color, cursor, input::TermRead};
 use hilo::{Deck, Table};
 
 fn init() -> (Deck, Table) {
-    let deck: Deck;
-    let table: Table;
+    // TODO print usage
+    print!("{}{}", clear::All, cursor::Goto(1, 1,));
+    let mut deck: Deck;
     loop {
-        print!("{}{}Deck size? ", clear::All, cursor::Goto(1, 1));
+        print!("Deck size? ");
         stdout().flush().unwrap();
         let mut input = String::new();
         stdin().read_line(&mut input).unwrap();
-        let size = match input[..input.len() - 1].parse::<usize>() {
+        input = input.trim().to_string();
+        let size = match input.parse::<usize>() {
             Ok(size) => size,
             Err(_) => {
                 println!("\nInvalid input!");
-                sleep(Duration::new(1, 0));
                 continue;
             }
         };
@@ -30,16 +30,67 @@ fn init() -> (Deck, Table) {
             Ok(deck) => deck,
             Err(e) => {
                 println!("\n{}", e.to_string());
-                sleep(Duration::new(1, 0));
                 continue;
             }
         };
         break;
     }
-    (deck, Table::new(1, &vec![String::from("a2")]).unwrap())
+    let rows: usize;
+    loop {
+        print!("\n\nRows? ");
+        stdout().flush().unwrap();
+        let mut input = String::new();
+        stdin().read_line(&mut input).unwrap();
+        input = input.trim().to_string();
+        rows = match input.parse::<usize>() {
+            Ok(rows) => rows,
+            Err(_) => {
+                println!("\nInvalid input!");
+                continue;
+            }
+        };
+        break;
+    }
+    let mut cards: Vec<String>;
+    let table: Table;
+    loop {
+        print!("Inital cards? ");
+        stdout().flush().unwrap();
+        let mut input = String::new();
+        stdin().read_line(&mut input).unwrap();
+        input = input.trim().to_string();
+        cards = input.split(",").map(|c| String::from(c)).collect();
+        // TODO more verbose user information
+        if cards.len() != rows {
+            println!("\nCard amount must match row count");
+            continue;
+        }
+        if !cards.iter().all(|c| Deck::is_card(c) && deck.has_card(c)) {
+            println!("\nInvalid card(s)");
+            continue;
+        }
+        for c in cards.iter() {
+            deck.remove(c).unwrap();
+        }
+        table = match Table::new(rows, cards) {
+            Ok(table) => table,
+            Err(_) => {
+                println!("\nInvalid input!");
+                continue;
+            }
+        };
+        break;
+    }
+
+    (deck, table)
 }
 
-fn main() {}
+fn main() {
+    let (deck, table) = init();
+    for r in table.rows.iter() {
+        println!("{}", r);
+    }
+}
 
 #[cfg(test)]
 mod test {
