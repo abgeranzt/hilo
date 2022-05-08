@@ -1,11 +1,7 @@
-use regex::Regex;
-use std::collections::HashMap;
-use std::fmt;
-use std::io::{stdin, stdout, Error, ErrorKind, Read, Write};
-use std::time::Duration;
+use std::io::{stdin, stdout, Write};
 
 extern crate termion;
-use termion::{clear, color, cursor, input::TermRead};
+use termion::{clear, color, cursor};
 
 use hilo::{Deck, Table};
 
@@ -85,12 +81,35 @@ fn init() -> (Deck, Table) {
     (deck, table)
 }
 
-fn main() {
-    let (deck, table) = init();
-    for r in table.rows.iter() {
-        println!("{}", r);
+fn format_chance(card: &String, deck: &Deck) -> String {
+    let (higher, equal, lower) = deck.calc(card).unwrap();
+    format!(
+        "{}▲ {:.2} {}◀▶ {:.2} {}▼ {:.2}{}",
+        color::Fg(color::Green),
+        higher,
+        color::Fg(color::Reset),
+        equal,
+        color::Fg(color::Blue),
+        lower,
+        color::Fg(color::Reset)
+    )
+}
+
+fn print_table(table: &Table, deck: &Deck) {
+    print!("{}", cursor::Goto(1, 1));
+    for row in table.rows.iter() {
+        println!(
+            "{}{}\t---\t{}\t---\t{}\n{}",
+            clear::CurrentLine,
+            format_chance(row.get_left(), deck),
+            row,
+            format_chance(row.get_right(), deck),
+            clear::CurrentLine,
+        )
     }
 }
+
+fn main() {}
 
 #[cfg(test)]
 mod test {

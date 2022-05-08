@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use std::fmt;
 use std::io::{Error, ErrorKind};
 
+extern crate termion;
+use termion::color;
+
 pub struct Deck {
     size: usize,
     cards: HashMap<String, bool>,
@@ -41,8 +44,10 @@ impl Deck {
         }
     }
 
-    // TODO handle cards that are not part of the deck
     pub fn add(&mut self, card: String) -> Result<(), Error> {
+        if !self.has_card(&card) {
+            return Err(Error::new(ErrorKind::InvalidInput, "Card not in deck"));
+        }
         let value = match Deck::parse_value(&card) {
             Ok(value) => value,
             Err(e) => return Err(e),
@@ -50,7 +55,12 @@ impl Deck {
         self.cards.insert(card, true);
         let count = match self.values.get_mut(&value) {
             Some(count) => count,
-            None => return Err(Error::new(ErrorKind::InvalidInput, "Card not in deck")),
+            None => {
+                return Err(Error::new(
+                    ErrorKind::InvalidInput,
+                    "Card value not in deck",
+                ))
+            }
         };
         *count = *count + 1;
         self.size = self.size + 1;
@@ -72,7 +82,7 @@ impl Deck {
         Ok(())
     }
 
-    fn calc(&self, card: &String) -> Result<(f32, f32, f32), Error> {
+    pub fn calc(&self, card: &String) -> Result<(f32, f32, f32), Error> {
         let comp_value = match Deck::parse_value(&card) {
             Ok(comp_value) => comp_value,
             Err(e) => return Err(e),
@@ -101,7 +111,7 @@ impl Deck {
     }
 
     pub fn is_card(card: &String) -> bool {
-        let re: Regex = Regex::new(r"^[abc]\d{1,2}$").unwrap();
+        let re: Regex = Regex::new(r"^[abcd]\d{1,2}$").unwrap();
         if !re.is_match(&card) {
             return false;
         }
@@ -143,19 +153,67 @@ impl Row {
         Row { cards: vec![card] }
     }
 
-    fn add_left(&mut self, card: String) {
+    pub fn get_left(&self) -> &String {
+        return self.cards.get(0).unwrap();
+    }
+
+    pub fn add_left(&mut self, card: String) {
         self.cards.insert(0, card);
     }
 
-    fn add_right(&mut self, card: String) {
+    pub fn get_right(&self) -> &String {
+        return self.cards.get(self.cards.len() - 1).unwrap();
+    }
+
+    pub fn add_right(&mut self, card: String) {
         self.cards.push(card)
     }
 
-    fn collapse(&mut self, card: String, deck: &mut Deck) {
+    pub fn collapse(&mut self, card: String, deck: &mut Deck) {
         for c in self.cards.drain(..) {
             deck.add(c).unwrap();
         }
         self.cards.push(card);
+    }
+
+    fn format_card(card: &String) -> String {
+        let mut red = false;
+        let (suit, value) = card.split_at(1);
+        let suit = match suit {
+            "a" => "♣",
+            "b" => "♠",
+            "c" => {
+                red = true;
+                "♥"
+            }
+            "d" => {
+                red = true;
+                "♦"
+            }
+            _ => "",
+        };
+        let value = match value {
+            "14" => "A",
+            "13" => "K",
+            "12" => "Q",
+            "11" => "J",
+            value => value,
+        };
+        let padding = match value.len() {
+            1 => " ",
+            _ => "",
+        };
+        if !red {
+            return format!("[{} {}{}]", suit, padding, value);
+        }
+        format!(
+            "{}[{} {}{}]{}",
+            color::Fg(color::Red),
+            suit,
+            padding,
+            value,
+            color::Fg(color::Reset)
+        )
     }
 }
 
@@ -163,10 +221,10 @@ impl fmt::Display for Row {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut cards = self.cards.iter();
         let card = cards.next();
-        let mut fmt_string = card.unwrap().clone();
+        let mut fmt_string = Row::format_card(card.unwrap());
         loop {
             match cards.next() {
-                Some(c) => fmt_string = format!("{} {}", fmt_string, c),
+                Some(c) => fmt_string = format!("{} {}", fmt_string, Row::format_card(c)),
                 None => break,
             };
         }
@@ -289,12 +347,39 @@ mod test {
     }
 
     #[test]
+    fn row_formats_cards_correctly() {
+        let cards = [
+            String::from("a4"),
+            String::from("b10"),
+            String::from("c12"),
+            String::from("d14"),
+        ];
+        assert_eq!(Row::format_card(&cards[0]), String::from("[♣  4]"));
+        assert_eq!(Row::format_card(&cards[1]), String::from("[♠ 10]"));
+        assert_eq!(
+            Row::format_card(&cards[2]),
+            format!("{}[♥  Q]{}", color::Fg(color::Red), color::Fg(color::Reset))
+        );
+        assert_eq!(
+            Row::format_card(&cards[3]),
+            format!("{}[♦  A]{}", color::Fg(color::Red), color::Fg(color::Reset))
+        );
+    }
+
+    #[test]
     fn row_formats_correctly() {
         let cards = [String::from("a4"), String::from("b3"), String::from("c12")];
         let mut row = Row::new(cards[1].clone());
         row.add_left(cards[0].clone());
         row.add_right(cards[2].clone());
-        let re = Regex::new(r"^a4 b3 c12$").unwrap();
-        assert!(re.is_match(&format!("{}", row)));
+        assert_eq!(
+            format!("{}", row),
+            format!(
+                "{} {} {}",
+                Row::format_card(row.cards.get(0).unwrap()),
+                Row::format_card(row.cards.get(1).unwrap()),
+                Row::format_card(row.cards.get(2).unwrap())
+            )
+        );
     }
 }
