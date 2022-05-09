@@ -1,7 +1,7 @@
 use std::io::{stdin, stdout, Write};
 
 extern crate termion;
-use termion::{clear, color, cursor};
+use termion::{clear, cursor};
 
 use hilo::{Deck, Table};
 
@@ -61,7 +61,7 @@ fn init() -> (Deck, Table) {
             println!("\nCard amount must match row count");
             continue;
         }
-        if !cards.iter().all(|c| Deck::is_card(c) && deck.has_card(c)) {
+        if !cards.iter().all(|c| deck.is_card(c) && deck.has_card(c)) {
             println!("\nInvalid card(s)");
             continue;
         }
@@ -79,34 +79,6 @@ fn init() -> (Deck, Table) {
     }
 
     (deck, table)
-}
-
-fn format_chance(card: &String, deck: &Deck) -> String {
-    let (higher, equal, lower) = deck.calc(card).unwrap();
-    format!(
-        "{}▲ {:.2} {}◀▶ {:.2} {}▼ {:.2}{}",
-        color::Fg(color::Green),
-        higher,
-        color::Fg(color::Reset),
-        equal,
-        color::Fg(color::Blue),
-        lower,
-        color::Fg(color::Reset)
-    )
-}
-
-fn print_table(table: &Table, deck: &Deck) {
-    print!("{}", cursor::Goto(1, 1));
-    for row in table.rows.iter() {
-        println!(
-            "{}{}\t---\t{}\t---\t{}\n{}",
-            clear::CurrentLine,
-            format_chance(row.get_left(), deck),
-            row,
-            format_chance(row.get_right(), deck),
-            clear::CurrentLine,
-        )
-    }
 }
 
 fn main() {}

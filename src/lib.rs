@@ -4,7 +4,7 @@ use std::fmt;
 use std::io::{Error, ErrorKind};
 
 extern crate termion;
-use termion::color;
+use termion::{clear, color, cursor};
 
 pub struct Deck {
     size: usize,
@@ -37,15 +37,30 @@ impl Deck {
         })
     }
 
+    pub fn is_card(&self, card: &String) -> bool {
+        let re: Regex = Regex::new(r"^[abcd]\d{1,2}$").unwrap();
+        if !re.is_match(card) {
+            return false;
+        }
+        let value = match Deck::parse_value(card) {
+            Ok(value) => value,
+            Err(_) => return false,
+        };
+        if value > 14 || value < (14 - self.cards.len() / 4) + 1 {
+            return false;
+        }
+        true
+    }
+
     pub fn has_card(&self, card: &String) -> bool {
         match self.cards.get(card) {
-            Some(_) => true,
+            Some(card) => *card,
             None => false,
         }
     }
 
     pub fn add(&mut self, card: String) -> Result<(), Error> {
-        if !self.has_card(&card) {
+        if !self.is_card(&card) {
             return Err(Error::new(ErrorKind::InvalidInput, "Card not in deck"));
         }
         let value = match Deck::parse_value(&card) {
@@ -103,26 +118,25 @@ impl Deck {
         Ok((chance(higher), chance(equal), chance(lower)))
     }
 
+    pub fn format_card_chance(&self, card: &String) -> String {
+        let (higher, equal, lower) = self.calc(card).unwrap();
+        format!(
+            "{}▲ {:.2} {}◀▶ {:.2} {}▼ {:.2}{}",
+            color::Fg(color::Green),
+            higher,
+            color::Fg(color::Reset),
+            equal,
+            color::Fg(color::Blue),
+            lower,
+            color::Fg(color::Reset)
+        )
+    }
+
     fn parse_value(card: &String) -> Result<usize, Error> {
         match card[1..].parse::<usize>() {
             Ok(card) => Ok(card),
             Err(_) => return Err(Error::new(ErrorKind::InvalidInput, "Invalid card value")),
         }
-    }
-
-    pub fn is_card(card: &String) -> bool {
-        let re: Regex = Regex::new(r"^[abcd]\d{1,2}$").unwrap();
-        if !re.is_match(&card) {
-            return false;
-        }
-        let value = match Deck::parse_value(card) {
-            Ok(value) => value,
-            Err(_) => return false,
-        };
-        if value > 14 || value < 2 {
-            return false;
-        }
-        true
     }
 }
 
@@ -141,6 +155,20 @@ impl Table {
             rows.push(Row::new(card));
         }
         Ok(Table { rows })
+    }
+
+    pub fn print(&self, deck: &Deck) {
+        print!("{}", cursor::Goto(1, 1));
+        for row in self.rows.iter() {
+            println!(
+                "{}{}\t---\t{}\t---\t{}\n{}",
+                clear::CurrentLine,
+                deck.format_card_chance(row.get_left()),
+                row,
+                deck.format_card_chance(row.get_right()),
+                clear::CurrentLine,
+            )
+        }
     }
 }
 
@@ -278,6 +306,27 @@ mod test {
     }
 
     #[test]
+    fn deck_can_format_card_chance() {
+        let mut deck = Deck::new(8).unwrap();
+        let card = String::from("a14");
+        deck.remove(&card).unwrap();
+        let (higher, equal, lower) = deck.calc(&card).unwrap();
+        assert_eq!(
+            deck.format_card_chance(&card),
+            format!(
+                "{}▲ {:.2} {}◀▶ {:.2} {}▼ {:.2}{}",
+                color::Fg(color::Green),
+                higher,
+                color::Fg(color::Reset),
+                equal,
+                color::Fg(color::Blue),
+                lower,
+                color::Fg(color::Reset)
+            )
+        )
+    }
+
+    #[test]
     fn deck_can_parse_card_values() {
         let cards = [String::from("a1"), String::from("b14"), String::from("bb")];
         assert_eq!(Deck::parse_value(&cards[0]).unwrap(), 1);
@@ -291,6 +340,7 @@ mod test {
 
     #[test]
     fn deck_can_check_card_validity() {
+        let deck = Deck::new(52).unwrap();
         let cards = [
             String::from("a10"),
             String::from("b20"),
@@ -298,10 +348,24 @@ mod test {
             String::from("!14"),
             String::from("f10"),
         ];
-        assert!(Deck::is_card(&cards[0]));
+        assert!(deck.is_card(&cards[0]));
         for card in cards[1..].iter() {
-            assert!(!Deck::is_card(&card));
+            assert!(!deck.is_card(&card));
         }
+    }
+
+    #[test]
+    fn deck_can_check_card_presence() {
+        let mut deck = Deck::new(8).unwrap();
+        let cards = [
+            String::from("a14"),
+            String::from("b10"),
+            String::from("c13"),
+        ];
+        deck.remove(&cards[0]).unwrap();
+        assert!(!deck.has_card(&cards[0]));
+        assert!(!deck.has_card(&cards[1]));
+        assert!(deck.has_card(&cards[2]));
     }
 
     #[test]
@@ -330,20 +394,24 @@ mod test {
     #[test]
     fn row_can_collapse_into_deck() {
         let mut deck = Deck::new(16).unwrap();
-        let card1 = String::from("a14");
-        let card2 = String::from("b13");
-        deck.remove(&card1).unwrap();
-        deck.remove(&card2).unwrap();
-        let mut row = Row::new(card1.clone());
-        row.add_right(card2.clone());
+        let cards = [
+            String::from("a14"),
+            String::from("b13"),
+            String::from("c13"),
+        ];
+        deck.remove(&cards[0]).unwrap();
+        deck.remove(&cards[1]).unwrap();
+        let mut row = Row::new(cards[0].clone());
+        row.add_right(cards[1].clone());
         assert_eq!(deck.size, 14);
-        assert!(!deck.cards.get(&card1).unwrap());
-        assert!(!deck.cards.get(&card2).unwrap());
-        assert_eq!(&row.cards, &vec![card1.clone(), card2.clone()]);
-        row.collapse(String::from("a1"), &mut deck);
-        assert_eq!(deck.size, 16);
-        assert!(deck.cards.get(&card1).unwrap());
-        assert!(deck.cards.get(&card2).unwrap());
+        assert!(!deck.has_card(&cards[0]));
+        assert!(!deck.has_card(&cards[1]));
+        assert_eq!(&row.cards, &vec![cards[0].clone(), cards[1].clone()]);
+        deck.remove(&cards[2]).unwrap();
+        row.collapse(cards[2].clone(), &mut deck);
+        assert_eq!(deck.size, 15);
+        assert!(deck.cards.get(&cards[0]).unwrap());
+        assert!(deck.cards.get(&cards[1]).unwrap());
     }
 
     #[test]
