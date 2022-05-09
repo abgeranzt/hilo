@@ -6,6 +6,14 @@ use std::io::{Error, ErrorKind};
 extern crate termion;
 use termion::{clear, color, cursor};
 
+pub enum Command {
+    Collapse,
+    AddLeft,
+    AddRight,
+    RemoveLeft,
+    RemoveRight,
+}
+
 pub struct Deck {
     size: usize,
     cards: HashMap<String, bool>,
@@ -157,6 +165,14 @@ impl Table {
         Ok(Table { rows })
     }
 
+    // TODO unit test for this
+    pub fn has_row(&self, row_num: usize) -> bool {
+        match self.rows.get(row_num) {
+            Some(_) => true,
+            None => false,
+        }
+    }
+
     pub fn print(&self, deck: &Deck) {
         print!("{}", cursor::Goto(1, 1));
         for row in self.rows.iter() {
@@ -181,6 +197,10 @@ impl Row {
         Row { cards: vec![card] }
     }
 
+    pub fn len(&self) -> usize {
+        self.cards.len()
+    }
+
     pub fn get_left(&self) -> &String {
         return self.cards.get(0).unwrap();
     }
@@ -189,12 +209,24 @@ impl Row {
         self.cards.insert(0, card);
     }
 
+    // TODO unit test
+    pub fn remove_left(&mut self, deck: &mut Deck) {
+        let card = self.cards.remove(0);
+        deck.add(card).unwrap();
+    }
+
     pub fn get_right(&self) -> &String {
         return self.cards.get(self.cards.len() - 1).unwrap();
     }
 
     pub fn add_right(&mut self, card: String) {
         self.cards.push(card)
+    }
+
+    // TODO unit test
+    pub fn remove_right(&mut self, deck: &mut Deck) {
+        let card = self.cards.pop().unwrap();
+        deck.add(card).unwrap();
     }
 
     pub fn collapse(&mut self, card: String, deck: &mut Deck) {

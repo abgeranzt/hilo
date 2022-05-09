@@ -3,7 +3,7 @@ use std::io::{stdin, stdout, Write};
 extern crate termion;
 use termion::{clear, cursor};
 
-use hilo::{Deck, Table};
+use hilo::{Command, Deck, Table};
 
 fn init() -> (Deck, Table) {
     // TODO print usage
@@ -52,9 +52,7 @@ fn init() -> (Deck, Table) {
     loop {
         print!("Inital cards? ");
         stdout().flush().unwrap();
-        let mut input = String::new();
-        stdin().read_line(&mut input).unwrap();
-        input = input.trim().to_string();
+        let input = read_input();
         cards = input.split(",").map(|c| String::from(c)).collect();
         // TODO more verbose user information
         if cards.len() != rows {
@@ -77,13 +75,125 @@ fn init() -> (Deck, Table) {
         };
         break;
     }
-
     (deck, table)
 }
 
-fn main() {}
+// TODO select row using arrow keys
+fn game_loop(mut deck: Deck, mut table: Table) {
+    let input_row = (table.rows.len() * 2 + 1) as u16;
+    let mut input: String;
+    loop {
+        print!("{}", clear::All);
+        table.print(&deck);
+        let mut row_num: usize;
+        loop {
+            print!(
+                "{}{}{}",
+                cursor::Goto(1, input_row),
+                clear::CurrentLine,
+                "Row? "
+            );
+            stdout().flush().unwrap();
+            input = read_input();
+            row_num = match input.parse::<usize>() {
+                Ok(n) => n,
+                Err(_) => {
+                    print!("\nInvalid input!");
+                    continue;
+                }
+            };
+            if !table.has_row(row_num - 1) {
+                print!("\nRow does not exist!");
+                continue;
+            }
+            print!("{}{}", cursor::Goto(1, input_row + 1), clear::CurrentLine,);
+            break;
+        }
+        let row = table.rows.get_mut(row_num - 1).unwrap();
+        let command: Command;
+        loop {
+            print!(
+                "{}{}{}",
+                cursor::Goto(1, input_row + 2),
+                clear::CurrentLine,
+                "Command? [c|al|ar|dl|dr]? "
+            );
+            stdout().flush().unwrap();
+            input = read_input();
+            command = match input.as_str() {
+                "c" => Command::Collapse,
+                "al" => Command::AddLeft,
+                "ar" => Command::AddRight,
+                "dl" => {
+                    if row.len() < 2 {
+                        print!("\nCannot remove last card in row!");
+                        continue;
+                    }
+                    Command::RemoveLeft
+                }
+                "dr" => {
+                    if row.len() < 2 {
+                        print!("\nCannot remove last card in row!");
+                        continue;
+                    }
+                    Command::RemoveRight
+                }
+                _ => {
+                    print!("\nInvalid command!");
+                    continue;
+                }
+            };
+            print!("{}{}", cursor::Goto(1, input_row + 3), clear::CurrentLine,);
+            break;
+        }
+        match command {
+            Command::RemoveLeft => {
+                row.remove_left(&mut deck);
+                continue;
+            }
+            Command::RemoveRight => {
+                row.remove_right(&mut deck);
+                continue;
+            }
+            _ => (),
+        }
+        let mut card: String;
+        loop {
+            print!(
+                "{}{}{}",
+                cursor::Goto(1, input_row + 4),
+                clear::CurrentLine,
+                "Card? "
+            );
+            stdout().flush().unwrap();
+            card = read_input();
+            if !deck.is_card(&card) {
+                print!("\nInvalid card!");
+                continue;
+            }
+            if !deck.has_card(&card) {
+                print!("\n Card not in deck!");
+                continue;
+            }
+            print!("{}{}", cursor::Goto(1, input_row + 5), clear::CurrentLine,);
+            break;
+        }
+        match command {
+            Command::Collapse => row.collapse(card, &mut deck),
+            Command::AddLeft => row.add_left(card),
+            Command::AddRight => row.add_right(card),
+            _ => (),
+        };
+    }
+}
 
-#[cfg(test)]
-mod test {
-    use super::*;
+fn read_input() -> String {
+    let mut input = String::new();
+    stdin().read_line(&mut input).unwrap();
+    input.trim().to_string().to_lowercase()
+}
+
+fn main() {
+    let (deck, table) = init();
+    game_loop(deck, table);
 }
