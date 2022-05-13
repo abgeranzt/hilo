@@ -80,12 +80,13 @@ fn init() -> (Deck, Table) {
 
 // TODO select row using arrow keys
 fn game_loop(mut deck: Deck, mut table: Table) {
+    let mut row_num: usize = 0;
     let input_row = (table.rows.len() * 2 + 1) as u16;
     let mut input: String;
+    table.print(&deck, row_num);
     loop {
         print!("{}", clear::All);
-        table.print(&deck);
-        let mut row_num: usize;
+        table.print(&deck, row_num);
         loop {
             print!(
                 "{}{}{}",
@@ -102,14 +103,18 @@ fn game_loop(mut deck: Deck, mut table: Table) {
                     continue;
                 }
             };
-            if !table.has_row(row_num - 1) {
+            row_num = row_num - 1;
+            if !table.has_row(row_num) {
                 print!("\nRow does not exist!");
                 continue;
             }
+            // TODO unit tests for table.print
+            // TODO does the whole table need to be reprinted?
+            table.print(&deck, row_num);
             print!("{}{}", cursor::Goto(1, input_row + 1), clear::CurrentLine,);
             break;
         }
-        let row = table.rows.get_mut(row_num - 1).unwrap();
+        let row = table.rows.get_mut(row_num).unwrap();
         let command: Command;
         loop {
             print!(

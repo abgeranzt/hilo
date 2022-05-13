@@ -2,6 +2,7 @@ use regex::Regex;
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{Error, ErrorKind};
+use termion::color::LightBlack;
 
 extern crate termion;
 use termion::{clear, color, cursor};
@@ -172,17 +173,23 @@ impl Table {
         }
     }
 
-    pub fn print(&self, deck: &Deck) {
+    pub fn print(&self, deck: &Deck, sel_row: usize) {
+        let mut row_num: usize = 0;
         print!("{}", cursor::Goto(1, 1));
         for row in self.rows.iter() {
+            if row_num == sel_row {
+                print!("{}", color::Bg(color::LightBlack));
+            }
             println!(
-                "{}{}\t---\t{}\t---\t{}\n{}",
+                "{}{}\t---\t{}\t---\t{}{}\n{}",
                 clear::CurrentLine,
                 deck.format_card_chance(row.get_left()),
                 row,
                 deck.format_card_chance(row.get_right()),
+                color::Bg(color::Reset),
                 clear::CurrentLine,
-            )
+            );
+            row_num = row_num + 1;
         }
     }
 }
