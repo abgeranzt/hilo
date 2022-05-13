@@ -165,7 +165,6 @@ impl Table {
         Ok(Table { rows })
     }
 
-    // TODO unit test for this
     pub fn has_row(&self, row_num: usize) -> bool {
         match self.rows.get(row_num) {
             Some(_) => true,
@@ -209,7 +208,6 @@ impl Row {
         self.cards.insert(0, card);
     }
 
-    // TODO unit test
     pub fn remove_left(&mut self, deck: &mut Deck) {
         let card = self.cards.remove(0);
         deck.add(card).unwrap();
@@ -223,7 +221,6 @@ impl Row {
         self.cards.push(card)
     }
 
-    // TODO unit test
     pub fn remove_right(&mut self, deck: &mut Deck) {
         let card = self.cards.pop().unwrap();
         deck.add(card).unwrap();
@@ -413,6 +410,13 @@ mod test {
     }
 
     #[test]
+    fn table_can_check_row_presence() {
+        let table = Table::new(1, vec![String::from("a2")]).unwrap();
+        assert!(table.has_row(0));
+        assert!(!table.has_row(1));
+    }
+
+    #[test]
     fn row_can_add_cards() {
         let card1 = String::from("a1");
         let mut row = Row::new(card1.clone());
@@ -421,6 +425,26 @@ mod test {
         row.add_left(card_left.clone());
         row.add_right(card_right.clone());
         assert_eq!(row.cards, vec![card_left, card1, card_right]);
+    }
+
+    #[test]
+    fn row_can_remove_cards() {
+        let cards = [String::from("a2"), String::from("b2"), String::from("c2")];
+        let mut deck = Deck::new(52).unwrap();
+        for card in cards.iter() {
+            deck.remove(card).unwrap();
+        }
+        let mut row = Row::new(cards[0].clone());
+        row.add_left(cards[1].clone());
+        row.add_right(cards[2].clone());
+        assert_eq!(
+            row.cards,
+            vec![cards[1].clone(), cards[0].clone(), cards[2].clone()]
+        );
+        row.remove_left(&mut deck);
+        assert_eq!(row.cards, vec![cards[0].clone(), cards[2].clone()]);
+        row.remove_right(&mut deck);
+        assert_eq!(row.cards, vec![cards[0].clone()]);
     }
 
     #[test]
